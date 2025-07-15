@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Slip Gaji</title>
+  <style>
+    .no-print { display: block; }
+    {% if is_pdf %}
+    .no-print { display: none !important; }
+    {% endif %}
+  </style>
+
+  {% if css_path %}
+    <link rel="stylesheet" href="{{ css_path }}">
+  {% else %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  {% endif %}
+</head>
+
+<body>
+<div style="max-width: 800px; margin: 0 auto; padding: 10px;">
+
+  <!-- Header dengan tabel agar stabil di PDF -->
+  <table style="width: 100%;">
+    <tr>
+      <td style="width: 80px;">
+        {% if logo_path %}
+          <img src="{{ logo_path }}" alt="Logo" style="width: 80px;">
+        {% else %}
+          <img src="{{ url_for('static', filename='logobki.png') }}" alt="Logo" style="width: 80px;">
+        {% endif %}
+      </td>
+      <td style="text-align: center; font-weight: bold; font-size: 20px;">
+        PT BIRO KLASIFIKASI INDONESIA (PERSERO)
+      </td>
+      <td style="width: 120px; text-align: right;">
+        <div style="font-weight: bold; font-size: 16px;">SLIP GAJI</div>
+        <div style="font-size: 14px;">{{ BULAN }} {{ TAHUN }}</div>
+      </td>
+    </tr>
+  </table>
+
+  <!-- Info Pegawai -->
+  <table style="width: 100%; margin-top: 15px;">
+    <tr>
+      <td style="width: 15%;">NIK / Nama</td><td style="width: 1%;">:</td><td style="width: 34%;">{{ NUP }} / {{ NAMA }}</td>
+      <td style="width: 15%;">Grade</td><td style="width: 1%;">:</td><td>{{ GRADE }}</td>
+    </tr>
+    <tr>
+      <td>Jabatan</td><td>:</td><td>{{ JABATAN }}</td>
+      <td>Unit Kerja</td><td>:</td><td>{{ UNIT_KERJA }}</td>
+    </tr>
+  </table>
+
+  <hr style="border: 1.5px solid black; margin-top: 15px;">
+
+  <!-- Bagian Gaji dan Potongan -->
+  <table style="width: 100%;">
+    <tr>
+      <!-- Kolom THP & Penghasilan Lain -->
+      <td style="width: 49%; vertical-align: top;">
+        <table class="gaji-table">
+          <tr><td colspan="3" class="section-title">T H P</td></tr>
+          <tr><td class="label">Gaji Dasar 1</td><td class="rp">Rp.</td><td class="value">{{ GAJI_DASAR_1 | rupiah }}</td></tr>
+          <tr><td class="label">Gaji Dasar 2</td><td class="rp">Rp.</td><td class="value">{{ GAJI_DASAR_2 | rupiah }}</td></tr>
+          <tr><td class="label">Tunjangan Grade</td><td class="rp">Rp.</td><td class="value">{{ TUNJ_GRADE | rupiah }}</td></tr>
+          <tr class="total-row"><td class="label">Total THP</td><td class="rp">Rp.</td><td class="value">{{ TOTAL_THP | rupiah }}</td></tr>
+
+          <tr><td colspan="3" class="section-title">PENGHASILAN LAIN</td></tr>
+          <tr><td class="label">Insentif/U. Lelah/Rapel</td><td class="rp">Rp.</td><td class="value">{{ RAPEL | rupiah }}</td></tr>
+          <tr><td class="label">Tunjangan Struktural</td><td class="rp">Rp.</td><td class="value">{{ TUNJ_STRUKTURAL | rupiah }}</td></tr>
+          <tr><td class="label">Uang Makan</td><td class="rp">Rp.</td><td class="value">{{ FOODING | rupiah }}</td></tr>
+          <tr><td class="label">Uang Transport</td><td class="rp">Rp.</td><td class="value">{{ TRANSPORT | rupiah }}</td></tr>
+          <tr><td class="label">Telpon</td><td class="rp">Rp.</td><td class="value">{{ TELPON | rupiah }}</td></tr>
+          <tr><td class="label">Uang Bensin</td><td class="rp">Rp.</td><td class="value">{{ BENSIN | rupiah }}</td></tr>
+          <tr><td class="label">Uang Perumahan</td><td class="rp">Rp.</td><td class="value">{{ PERUMAHAN | rupiah }}</td></tr>
+          <tr><td class="label">EToll</td><td class="rp">Rp.</td><td class="value">{{ E_TOLL | rupiah }}</td></tr>
+          <tr><td class="label">Tunjangan Kendaraan</td><td class="rp">Rp.</td><td class="value">{{ KENDARAAN | rupiah }}</td></tr>
+          <tr class="total-row"><td class="label">Total Penghasilan Lain</td><td class="rp">Rp.</td><td class="value">{{ PENGHASILAN_LAIN | rupiah }}</td></tr>
+        </table>
+      </td>
+
+      <!-- Kolom Potongan -->
+      <td style="width: 2%;"></td> <!-- spacer -->
+      <td style="width: 49%; vertical-align: top;">
+        <table class="gaji-table">
+          <tr><td colspan="3" class="section-title">POTONGAN</td></tr>
+          <tr><td class="label">IDP</td><td class="rp">Rp.</td><td class="value">{{ IDP | rupiah }}</td></tr>
+          <tr><td class="label">PIP</td><td class="rp">Rp.</td><td class="value">{{ PIP | rupiah }}</td></tr>
+          <tr><td class="label">DPLK</td><td class="rp">Rp.</td><td class="value">{{ DPLK | rupiah }}</td></tr>
+          <tr><td class="label">Simp. Wajib Koperasi</td><td class="rp">Rp.</td><td class="value">{{ SIKOP | rupiah }}</td></tr>
+          <tr><td class="label">Pinjaman Koperasi</td><td class="rp">Rp.</td><td class="value">{{ PINKOP | rupiah }}</td></tr>
+          <tr><td class="label">Serikat Pekerja</td><td class="rp">Rp.</td><td class="value">{{ SP | rupiah }}</td></tr>
+          <tr><td class="label">BPJS Ketenagakerjaan</td><td></td><td></td></tr>
+          <tr><td class="label sub-item">- Jaminan Hari Tua</td><td class="rp">Rp.</td><td class="value">{{ JAMSOSTEK | rupiah }}</td></tr>
+          <tr><td class="label sub-item">- Jaminan Pensiun</td><td class="rp">Rp.</td><td class="value">{{ JAMINAN_PENSIUN | rupiah }}</td></tr>
+          <tr><td class="label">BPJS Kesehatan</td><td class="rp">Rp.</td><td class="value">{{ BPJS_KESEHATAN | rupiah }}</td></tr>
+          <tr><td class="label">ZIL / Amal</td><td class="rp">Rp.</td><td class="value">{{ ZIS | rupiah }}</td></tr>
+          <tr><td class="label">Tapera</td><td class="rp">Rp.</td><td class="value">{{ TAPERA | rupiah }}</td></tr>
+          <tr><td class="label">Lain-Lain</td><td class="rp">Rp.</td><td class="value">{{ LAIN_LAIN | rupiah }}</td></tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+
+  <!-- Total THP & Potongan -->
+<table class="gaji-table total-section">
+  <tr>
+    <td class="label">Total Gross</td>
+    <td class="rp">Rp.</td>
+    <td class="value">{{ THP_GROSS_II | rupiah }}</td>
+
+    <td style="width: 10px;"></td> <!-- Spacer antar dua kelompok -->
+
+    <td class="label">Total Potongan</td>
+    <td class="rp">Rp.</td>
+    <td class="value">{{ JML_POTONGAN | rupiah }}</td>
+  </tr>
+  <tr class="net-row">
+    <td class="label" colspan="5">Total Net</td>
+    <td class="rp">Rp.</td>
+    <td class="value">{{ THP_NET | rupiah }}</td>
+  </tr>
+</table>
+
+  <!-- Tanda Tangan -->
+  <table style="width: 100%; margin-top: 20px;">
+    <tr>
+      <td style="width: 50%; text-align: left;">
+        <p>{{ TEMPAT }}, {{ TANGGAL }} {{ BULAN }} {{ TAHUN }}</p>
+        <p style="font-weight: bold;">Mengetahui,</p>
+        <p>{{ JABATAN_PENANDATANGAN }}</p>
+        {% if signature_path %}
+          <img src="{{ signature_path }}" alt="Tanda Tangan" style="height: 80px;">
+        {% else %}
+          <img src="{{ url_for('static', filename='tandatangan.png') }}" alt="Tanda Tangan" style="height: 80px;">
+        {% endif %}
+        <p style="font-weight: bold;">{{ PENANDATANGAN }}</p>
+      </td>
+      <td style="width: 50%; text-align: right;">
+        <p style="margin-bottom: 43px;">&nbsp;</p>
+        <p>Diterima Oleh:</p>
+        <p style="margin-bottom: 80px;">&nbsp;</p>
+        <p style="font-weight: bold;">{{ NAMA }}</p>
+      </td>
+    </tr>
+  </table>
+
+  <!-- Tombol Download -->
+  <div class="download no-print">
+    <form action="{{ url_for('download') }}" method="get">
+      <button type="submit" class="button">Download PDF</button>
+    </form>
+  </div>
+
+</div>
+</body>
+</html>

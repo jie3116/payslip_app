@@ -1,0 +1,82 @@
+body {
+    font-family: Arial, sans-serif;
+    font-size: 13px;
+    color: #000;
+    margin: 0;
+    padding: 0;
+}
+
+.gaji-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+.gaji-table th,
+.gaji-table td {
+    padding: 4px 6px;
+    vertical-align: top;
+}
+
+.gaji-table th {
+    text-align: left;
+}
+
+.gaji-table .section-title {
+    font-weight: bold;
+    background-color: #f2f2f2;
+    padding: 5px;
+}
+
+.gaji-table .label {
+    width: 200px;
+}
+
+.gaji-table .rp {
+    width: 30px;
+}
+
+.gaji-table .value {
+    text-align: right;
+    width: 100px;
+}
+
+.gaji-table .total-row {
+    font-weight: bold;
+    border-top: 1px solid #000;
+}
+
+.double-table {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.double-table table {
+    width: 48%;
+}
+
+.total-section {
+    border-top: 2px solid #000;
+    font-weight: bold;
+    margin-top: 20px;
+}
+
+.net-row {
+    background-color: #f2f2f2;
+    font-weight: bold;
+}
+
+.download {
+    text-align: center;
+    margin-top: 30px;
+}
+
+.button {
+    padding: 8px 16px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+

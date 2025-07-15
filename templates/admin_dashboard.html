@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin - Daftar Slip Gaji</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    h2 {
+      margin-bottom: 20px;
+    }
+    input[type="text"] {
+      padding: 8px;
+      margin-bottom: 10px;
+      width: 300px;
+      font-size: 14px;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 10px;
+    }
+    th, td {
+      padding: 8px 12px;
+      border: 1px solid #ccc;
+      text-align: left;
+      font-size: 14px;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+    .btn {
+      padding: 6px 12px;
+      font-size: 13px;
+      text-decoration: none;
+      color: white;
+      border-radius: 4px;
+    }
+    .btn-download {
+      background-color: #007bff;
+    }
+    .btn-kirim {
+      background-color: green;
+    }
+    .btn-kirim-semua {
+      background-color: #e67e22;
+      font-weight: bold;
+      margin-bottom: 10px;
+      display: inline-block;
+    }
+    .status-belum {
+      color: red;
+    }
+    .status-sudah {
+      color: green;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>📄 Dashboard Admin - Slip Gaji Pegawai</h2>
+
+  <a href="{{ url_for('sendall') }}" class="btn btn-kirim-semua">🚀 Kirim Semua Slip Gaji</a>
+  <a href="{{ url_for('upload_excel') }}" class="btn btn-kirim-semua" style="background-color: #3498db;">📁 Upload Data Gaji (.xlsx)</a>
+
+  <!-- 🔍 Input Search -->
+  <input type="text" id="searchInput" onkeyup="searchTable()" placeholder="Cari Nama, Email, NUP..." />
+
+  <table id="slipTable">
+    <thead>
+      <tr>
+        <th>NUP</th>
+        <th>Nama</th>
+        <th>Email</th>
+        <th>Bulan</th>
+        <th>Tahun</th>
+        <th>Slip</th>
+        <th>Status</th>
+        <th>Aksi</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in slips %}
+      <tr>
+        <td>{{ s.nup }}</td>
+        <td>{{ s.nama }}</td>
+        <td>{{ s.email }}</td>
+        <td>{{ s.bulan }}</td>
+        <td>{{ s.tahun }}</td>
+        <td>
+          {% if s.file_path %}
+            <a href="/{{ s.file_path }}" class="btn btn-download" target="_blank">Download</a>
+          {% else %}
+            ❌
+          {% endif %}
+        </td>
+        <td>
+          {% if s.status_kirim == 'Sudah' %}
+            <span class="status-sudah">✅ Sudah</span>
+          {% else %}
+            <span class="status-belum">❌ Belum</span>
+          {% endif %}
+        </td>
+        <td>
+          <a href="{{ url_for('resend_email', nup=s.nup) }}" class="btn btn-kirim">Kirim Ulang</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- 🔍 JavaScript Filter Function -->
+  <script>
+    function searchTable() {
+      let input = document.getElementById("searchInput");
+      let filter = input.value.toLowerCase();
+      let table = document.getElementById("slipTable");
+      let rows = table.getElementsByTagName("tr");
+
+      for (let i = 1; i < rows.length; i++) {
+        let cells = rows[i].getElementsByTagName("td");
+        let match = false;
+
+        for (let j = 0; j < cells.length; j++) {
+          if (cells[j] && cells[j].innerText.toLowerCase().includes(filter)) {
+            match = true;
+            break;
+          }
+        }
+
+        rows[i].style.display = match ? "" : "none";
+      }
+    }
+  </script>
+
+</body>
+</html>
