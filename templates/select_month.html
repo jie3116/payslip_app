@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Pilih Bulan Gaji</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f5f7fa;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .container {
+      background-color: white;
+      padding: 30px 40px;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+
+    h3 {
+      margin-bottom: 20px;
+      color: #2c3e50;
+    }
+
+    select {
+      padding: 10px 15px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 16px;
+      margin-right: 10px;
+    }
+
+    button,
+    .btn-password {
+      padding: 10px 20px;
+      background-color: #3498db;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+      margin-top: 15px;
+    }
+
+    button:hover,
+    .btn-password:hover {
+      background-color: #2980b9;
+    }
+
+    .btn-container {
+      margin-top: 20px;
+    }
+
+    .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 15px;
+            text-decoration: none;
+            color: #007bff;
+    }
+    .back-link:hover {
+            text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h3>Pilih Bulan Gaji</h3>
+    <form method="POST">
+      <select name="file" required>
+        <option value="" disabled selected>-- Pilih Bulan --</option>
+        {% for item in bulan_available %}
+          <option value="{{ item.source_file }}">
+            {{ item.BULAN }}/{{ item.TAHUN }}
+          </option>
+        {% endfor %}
+      </select>
+      <button type="submit">Lihat Slip</button>
+    </form>
+    <div class="btn-container">
+      <a href="{{ url_for('ubah_password') }}" class="back-link">🔒 Ubah Password</a>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,93 @@
+/* sidebar.css - Only contains sidebar styles */
+.container {
+    display: flex;
+    min-height: 100vh;
+}
+
+.sidebar {
+    width: 220px;
+    padding: 20px;
+    background: linear-gradient(to bottom, #1e88e5, #0d47a1);
+    color: white;
+    min-height: 100vh;
+    box-sizing: border-box;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+}
+
+.sidebar a,
+.sidebar button {
+    display: block;
+    width: 100%;
+    margin-bottom: 12px;
+    text-align: left;
+    padding: 10px 12px;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s ease;
+    color: white;
+    text-decoration: none;
+}
+
+.sidebar button {
+    background-color: #42a5f5;
+    font-weight: 500;
+}
+
+.sidebar button:hover {
+    background-color: #2196f3;
+    transform: translateX(2px);
+}
+
+.sidebar .btn-success {
+    background-color: #4caf50;
+}
+
+.sidebar .btn-success:hover {
+    background-color: #2e7d32;
+}
+
+.sidebar .btn-info {
+    background-color: #00acc1;
+}
+
+.sidebar .btn-info:hover {
+    background-color: #00838f;
+}
+
+.sidebar .select-box {
+    width: 100%;
+    margin-bottom: 12px;
+    padding: 8px 10px;
+    border-radius: 4px;
+    border: 1px solid #bbdefb;
+    background-color: #e3f2fd;
+    font-size: 13px;
+    cursor: pointer;
+    color: #0d47a1;
+}
+
+.sidebar .select-box:hover {
+    background-color: #bbdefb;
+}
+
+.sidebar .month-form {
+    margin-bottom: 15px;
+}
+
+.main-content {
+    flex: 1;
+    padding: 20px;
+}
+
+@media print {
+    .sidebar {
+        display: none !important;
+    }
+
+    .main-content {
+        margin-left: 0 !important;
+        padding: 0 !important;
+    }
+}

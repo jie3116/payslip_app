@@ -79,4 +79,25 @@ body {
     cursor: pointer;
 }
 
+@media print {
+    .no-print {
+        display: none !important;
+    }
+}
+
+.toolbar {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+    margin: 10px 20px 0 20px;
+    flex-wrap: wrap;
+}
+
+.select-box {
+    padding: 4px;
+    font-size: 13px;
+    height: 30px;
+}
+
 

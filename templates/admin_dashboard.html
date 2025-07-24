@@ -1,137 +1,206 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <title>Admin - Daftar Slip Gaji</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard Admin - Slip Gaji</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       padding: 20px;
+      background-color: #f8f9fa;
+      color: #333;
     }
-    h2 {
+
+    header {
       margin-bottom: 20px;
     }
-    input[type="text"] {
+
+    h2 {
+      font-size: 24px;
+      color: #2c3e50;
+    }
+
+    form,
+    .action-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+
+    select,
+    input[type="text"],
+    button {
       padding: 8px;
-      margin-bottom: 10px;
-      width: 300px;
       font-size: 14px;
-    }
-    table {
-      border-collapse: collapse;
-      width: 100%;
-      margin-top: 10px;
-    }
-    th, td {
-      padding: 8px 12px;
+      border-radius: 4px;
       border: 1px solid #ccc;
-      text-align: left;
+    }
+
+    input[type="text"] {
+      flex-grow: 1;
+      min-width: 200px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+    }
+
+    th,
+    td {
+      padding: 10px 12px;
+      border: 1px solid #ddd;
       font-size: 14px;
+      text-align: left;
     }
+
     th {
-      background-color: #f2f2f2;
+      background-color: #e9ecef;
     }
+
     .btn {
       padding: 6px 12px;
       font-size: 13px;
-      text-decoration: none;
       color: white;
+      border: none;
+      cursor: pointer;
       border-radius: 4px;
+      transition: background 0.3s ease;
     }
+
     .btn-download {
       background-color: #007bff;
     }
+
     .btn-kirim {
-      background-color: green;
+      background-color: #28a745;
     }
-    .btn-kirim-semua {
+
+    .btn-action {
       background-color: #e67e22;
       font-weight: bold;
-      margin-bottom: 10px;
-      display: inline-block;
     }
+
+    .btn-upload {
+      background-color: #3498db;
+    }
+
     .status-belum {
-      color: red;
+      color: #e74c3c;
     }
+
     .status-sudah {
-      color: green;
+      color: #27ae60;
+    }
+
+    @media (max-width: 600px) {
+      .form-inline, .action-bar {
+        flex-direction: column;
+        align-items: stretch;
+      }
     }
   </style>
 </head>
 <body>
 
-  <h2>📄 Dashboard Admin - Slip Gaji Pegawai</h2>
+  <header>
+    <h2>📄 Dashboard Admin - Slip Gaji Pegawai</h2>
+  </header>
 
-  <a href="{{ url_for('sendall') }}" class="btn btn-kirim-semua">🚀 Kirim Semua Slip Gaji</a>
-  <a href="{{ url_for('upload_excel') }}" class="btn btn-kirim-semua" style="background-color: #3498db;">📁 Upload Data Gaji (.xlsx)</a>
+  <!-- 🔄 Form Filter -->
+  <section>
+    <form method="get" action="{{ url_for('admin_dashboard') }}">
+      <label for="bulan">Bulan:</label>
+      <select name="bulan" id="bulan">
+        {% for b in ['01','02','03','04','05','06','07','08','09','10','11','12'] %}
+          <option value="{{ b }}" {% if bulan == b %}selected{% endif %}>{{ b }}</option>
+        {% endfor %}
+      </select>
 
-  <!-- 🔍 Input Search -->
-  <input type="text" id="searchInput" onkeyup="searchTable()" placeholder="Cari Nama, Email, NUP..." />
+      <label for="tahun">Tahun:</label>
+      <select name="tahun" id="tahun">
+        {% for t in ['2025', '2026'] %}
+          <option value="{{ t }}" {% if tahun == t %}selected{% endif %}>{{ t }}</option>
+        {% endfor %}
+      </select>
 
-  <table id="slipTable">
-    <thead>
-      <tr>
-        <th>NUP</th>
-        <th>Nama</th>
-        <th>Email</th>
-        <th>Bulan</th>
-        <th>Tahun</th>
-        <th>Slip</th>
-        <th>Status</th>
-        <th>Aksi</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for s in slips %}
-      <tr>
-        <td>{{ s.nup }}</td>
-        <td>{{ s.nama }}</td>
-        <td>{{ s.email }}</td>
-        <td>{{ s.bulan }}</td>
-        <td>{{ s.tahun }}</td>
-        <td>
-          {% if s.file_path %}
-            <a href="/{{ s.file_path }}" class="btn btn-download" target="_blank">Download</a>
-          {% else %}
-            ❌
-          {% endif %}
-        </td>
-        <td>
-          {% if s.status_kirim == 'Sudah' %}
-            <span class="status-sudah">✅ Sudah</span>
-          {% else %}
-            <span class="status-belum">❌ Belum</span>
-          {% endif %}
-        </td>
-        <td>
-          <a href="{{ url_for('resend_email', nup=s.nup) }}" class="btn btn-kirim">Kirim Ulang</a>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+      <button type="submit" class="btn btn-action">🔍 Lihat Slip</button>
+    </form>
+  </section>
 
-  <!-- 🔍 JavaScript Filter Function -->
+  <!-- 🧰 Action Bar -->
+  <section class="action-bar">
+    {% if slips %}
+      <a href="{{ url_for('sendall', bulan=bulan, tahun=tahun) }}" class="btn btn-action">🚀 Kirim Semua Slip Gaji</a>
+    {% endif %}
+    <a href="{{ url_for('upload_excel') }}" class="btn btn-upload">📁 Upload Data Gaji (.xlsx)</a>
+    <input type="text" id="searchInput" onkeyup="searchTable()" placeholder="🔎 Cari Nama, Email, NUP..." />
+  </section>
+
+  <!-- 📊 Table -->
+  {% if slips %}
+    <main>
+      <table id="slipTable">
+        <thead>
+          <tr>
+            <th>NUP</th>
+            <th>Nama</th>
+            <th>Email</th>
+            <th>Bulan</th>
+            <th>Tahun</th>
+            <th>Slip</th>
+            <th>Status</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in slips %}
+          <tr>
+            <td>{{ s.nup }}</td>
+            <td>{{ s.nama }}</td>
+            <td>{{ s.email }}</td>
+            <td>{{ s.bulan }}</td>
+            <td>{{ s.tahun }}</td>
+            <td>
+              {% if s.file_path %}
+                <a href="{{ url_for('admin_download', nup=s.nup, bulan=s.bulan, tahun=s.tahun) }}" class="btn btn-download" target="_blank">Download</a>
+              {% else %}
+                ❌
+              {% endif %}
+            </td>
+            <td>
+              {% if s.status_kirim == 'Sudah' %}
+                <span class="status-sudah">✅ Sudah</span>
+              {% else %}
+                <span class="status-belum">❌ Belum</span>
+              {% endif %}
+            </td>
+            <td>
+              <a href="{{ url_for('send_email_by_admin', nup=s.nup, bulan=s.bulan, tahun=s.tahun) }}" class="btn btn-kirim">Kirim</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </main>
+  {% else %}
+    <p>⚠️ Tidak ada data slip gaji untuk periode ini.</p>
+  {% endif %}
+
   <script>
     function searchTable() {
-      let input = document.getElementById("searchInput");
-      let filter = input.value.toLowerCase();
-      let table = document.getElementById("slipTable");
-      let rows = table.getElementsByTagName("tr");
+      const input = document.getElementById("searchInput").value.toLowerCase();
+      const rows = document.querySelectorAll("#slipTable tbody tr");
 
-      for (let i = 1; i < rows.length; i++) {
-        let cells = rows[i].getElementsByTagName("td");
-        let match = false;
-
-        for (let j = 0; j < cells.length; j++) {
-          if (cells[j] && cells[j].innerText.toLowerCase().includes(filter)) {
-            match = true;
-            break;
-          }
-        }
-
-        rows[i].style.display = match ? "" : "none";
-      }
+      rows.forEach(row => {
+        const cells = Array.from(row.getElementsByTagName("td"));
+        const match = cells.some(cell => cell.textContent.toLowerCase().includes(input));
+        row.style.display = match ? "" : "none";
+      });
     }
   </script>
 
