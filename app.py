@@ -1,53 +1,79 @@
-from flask import Flask, render_template, request, redirect, url_for, session, send_file
+from flask import Flask, render_template, request, redirect, url_for, session, send_file, flash
 import pandas as pd
 from utils.generate_pdf import generate_pdf
-from utils import send_email
-from utils.helpers import format_rupiah, update_password, check_user_password, get_user_by_nup, clean_column_names
+from utils.helpers import (
+    format_rupiah, update_password, check_user_password, get_user_by_nup,
+    clean_column_names, get_komponen_by_status, add_user
+)
 import os
 from werkzeug.utils import secure_filename
 from models.db import init_db
-import re
-import calendar
 from datetime import datetime
-
-
 
 app = Flask(__name__)
 app.secret_key = 'gaji-2024'
 
-
 UPLOAD_FOLDER = 'data'
 ALLOWED_EXTENSIONS = {'xlsx'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
 app.jinja_env.filters['rupiah'] = format_rupiah
 
-
+# ====== HELPER FUNCTIONS ======
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+def get_previous_month():
+    now = datetime.now()
+    if now.month == 1:
+        return "12", str(now.year - 1)
+    return str(now.month - 1).zfill(2), str(now.year)
+
+
+def format_password_ttl(ttl_value):
+    if pd.isna(ttl_value):
+        return "00000000"
+    if isinstance(ttl_value, datetime):
+        return ttl_value.strftime("%d%m%Y")
+    if isinstance(ttl_value, (int, float)):
+        try:
+            parsed = pd.to_datetime(ttl_value, origin='1899-12-30', unit='D')
+            return parsed.strftime("%d%m%Y")
+        except:
+            pass
+    try:
+        parsed = pd.to_datetime(str(ttl_value), dayfirst=True, errors='coerce')
+        if not pd.isna(parsed):
+            return parsed.strftime("%d%m%Y")
+    except:
+        pass
+    return str(ttl_value).zfill(8)
 
 def load_all_salary_data():
     all_data = []
     for file in os.listdir(app.config['UPLOAD_FOLDER']):
         if file.endswith('.xlsx'):
-            path = os.path.join(app.config['UPLOAD_FOLDER'], file)
             try:
+                path = os.path.join(app.config['UPLOAD_FOLDER'], file)
                 df = pd.read_excel(path)
                 df = clean_column_names(df)
-                tahun, bulan = file.replace('.xlsx', '').split('_')[1:]  # gaji_2025_01.xlsx
+                tahun, bulan = file.replace('.xlsx', '').split('_')[1:]
                 df['BULAN'] = int(bulan)
                 df['TAHUN'] = int(tahun)
-                df['PASSWORD'] = df['TTL'].astype(str).str.zfill(8)
+                df['PASSWORD'] = df['TTL'].apply(format_password_ttl)
                 df['SOURCE_FILE'] = file
                 all_data.append(df)
             except Exception as e:
                 print(f"Gagal membaca {file}: {e}")
-    if all_data:
-        return pd.concat(all_data, ignore_index=True)
-    return pd.DataFrame()
+    return pd.concat(all_data, ignore_index=True) if all_data else pd.DataFrame()
 
+# Placeholder: Implementasi sesuai DB kamu
+def get_slip_from_db(bulan, tahun):
+    df = load_all_salary_data()
+    if df.empty:
+        return []
+    return df[(df['BULAN'] == int(bulan)) & (df['TAHUN'] == int(tahun))].to_dict(orient='records')
 
+# ====== ROUTES ======
 @app.route('/', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -62,25 +88,33 @@ def login():
             if user['role'] == 'admin':
                 return redirect(url_for('admin_dashboard'))
 
-            # Dapatkan bulan & tahun sekarang
-            now = datetime.now()
-            bulan = str(now.month).zfill(2)
-            tahun = str(now.year)
+            files = [f for f in os.listdir(app.config['UPLOAD_FOLDER']) if f.endswith('.xlsx') and not f.startswith('~$')]
+            bulan_available = []
+            for file in files:
+                try:
+                    df = pd.read_excel(os.path.join(app.config['UPLOAD_FOLDER'], file), nrows=1)
+                    if 'BULAN' in df.columns and 'TAHUN' in df.columns:
+                        bulan = str(df.iloc[0]['BULAN']).zfill(2)
+                        tahun = str(df.iloc[0]['TAHUN']).strip()
+                        bulan_available.append({'BULAN': bulan, 'TAHUN': tahun, 'source_file': file})
+                except Exception as e:
+                    print(f"Gagal membaca {file}: {e}")
 
+            session['available_months'] = bulan_available
+            bulan, tahun = get_previous_month()
             filename = f'gaji_{tahun}_{bulan}.xlsx'
             file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-
             if os.path.exists(file_path):
                 session['selected_file'] = filename
+            elif bulan_available:
+                session['selected_file'] = bulan_available[0]['source_file']
             else:
-                session['selected_file'] = None  # ditangani di /slip nanti
+                session['selected_file'] = None
 
             return redirect(url_for('slip'))
 
         return render_template('login.html', error='Login gagal.')
-
     return render_template('login.html')
-
 
 @app.route('/ubah_password', methods=['GET', 'POST'])
 def ubah_password():
@@ -98,13 +132,12 @@ def ubah_password():
             message = '❌ Konfirmasi password tidak cocok.'
         else:
             update_password(session['nup'], new_pw)
-            session.clear()  # supaya langsung logout
-            return redirect(url_for('login', success=1))  # ini penting!
+            session.clear()
+            return redirect(url_for('login', success=1))
 
         return render_template('ubah_password.html', message=message)
 
     return render_template('ubah_password.html', message='')
-
 
 
 @app.route('/select_month', methods=['GET', 'POST'])
@@ -136,56 +169,34 @@ def select_month():
 
     return render_template('select_month.html', bulan_available=bulan_available)
 
-
 @app.route('/slip')
 def slip():
-    if 'nup' not in session:
+    if 'nup' not in session or 'selected_file' not in session:
         return redirect(url_for('login'))
 
-    # Kalau belum ada selected_file, cari otomatis berdasarkan bulan sekarang
-    if 'selected_file' not in session or not session['selected_file']:
-        now = datetime.now()
-        bulan = str(now.month).zfill(2)
-        tahun = str(now.year)
-        filename = f'gaji_{tahun}_{bulan}.xlsx'
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        if os.path.exists(file_path):
-            session['selected_file'] = filename
-        else:
-            return f"❌ Data gaji bulan {bulan}/{tahun} tidak ditemukan.", 404
-
     file_path = os.path.join(app.config['UPLOAD_FOLDER'], session['selected_file'])
-    df = pd.read_excel(file_path)
-    df = clean_column_names(df)
-    df['PASSWORD'] = df['TTL'].astype(str).str.zfill(8)
+    df_selected = pd.read_excel(file_path)
+    df_selected = clean_column_names(df_selected)
+    df_selected['PASSWORD'] = df_selected['TTL'].apply(format_password_ttl)
 
-    if 'BULAN' not in df.columns or 'TAHUN' not in df.columns:
-        return "Data tidak memiliki informasi BULAN dan TAHUN", 400
-
-    df['PERIODE'] = df['BULAN'].astype(str) + ' ' + df['TAHUN'].astype(str)
-    available_months = sorted(df['PERIODE'].unique().tolist())
-
-    selected_month = request.args.get('month')
-    if selected_month is None or selected_month not in available_months:
-        selected_month = available_months[-1]  # default: bulan terbaru
-
-    df_selected = df[df['PERIODE'] == selected_month]
     user_data = df_selected[df_selected['NUP'].astype(str) == session['nup']]
     if user_data.empty:
-        return f"Tidak ditemukan slip untuk bulan {selected_month}", 404
+        return "Data tidak ditemukan", 404
 
-    user_data = user_data.iloc[0].to_dict()
-    bulan, tahun = selected_month.split()
+    user_dict = user_data.iloc[0].to_dict()
+    komponen_thp, komponen_lain, komponen_potongan = get_komponen_by_status(user_dict)
 
     return render_template(
         'slip.html',
-        **user_data,
-        available_months=available_months,
-        selected_month=selected_month,
-        logo_path=url_for('static', filename='logobki.png'),
-        signature_path=url_for('static', filename='tandatangan.png'),
-        css_path=url_for('static', filename='css/styles.css'),
-        is_pdf=False
+        **user_dict,
+        status=user_dict.get('STATUS_PEGAWAI', '').lower(),
+        komponen_thp=komponen_thp,
+        komponen_lain=komponen_lain,
+        komponen_potongan=komponen_potongan,
+        total_thp=user_dict.get("TOTAL_THP"),
+        total_lain=user_dict.get("PENGHASILAN_LAIN"),
+        available_months=session.get('available_months', []),
+        selected_month=session.get('selected_month', None)
     )
 
 @app.route('/download')
@@ -196,188 +207,80 @@ def download():
     file_path = os.path.join(app.config['UPLOAD_FOLDER'], session['selected_file'])
     df_selected = pd.read_excel(file_path)
     df_selected = clean_column_names(df_selected)
-    df_selected['PASSWORD'] = df_selected['TTL'].astype(str).str.zfill(8)
+    df_selected['PASSWORD'] = df_selected['TTL'].apply(format_password_ttl)
 
     user_data = df_selected[df_selected['NUP'].astype(str) == session['nup']]
     if user_data.empty:
         return "Data tidak ditemukan", 404
 
-    pdf_path = generate_pdf(user_data.iloc[0].to_dict())
+    user_dict = user_data.iloc[0].to_dict()
+    komponen_thp, komponen_lain, komponen_potongan = get_komponen_by_status(user_dict)
+    pdf_path = generate_pdf({
+        **user_dict,
+        "komponen_thp": komponen_thp,
+        "komponen_lain": komponen_lain,
+        "komponen_potongan": komponen_potongan,
+        "status": user_dict.get('STATUS_PEGAWAI', '').lower()
+    })
     return send_file(pdf_path, as_attachment=True)
 
-@app.route('/admin')
+@app.route("/admin", methods=["GET", "POST"])
 def admin_dashboard():
     if session.get('role') != 'admin':
         return redirect(url_for('login'))
 
-    # Ambil parameter dari URL (?bulan=xx&tahun=xxxx)
-    selected_bulan = request.args.get('bulan')
-    selected_tahun = request.args.get('tahun')
+    active_tab = request.args.get("tab", "slip")
+    bulan = request.args.get("bulan", datetime.now().month)
+    tahun = request.args.get("tahun", datetime.now().year)
+    data_slip = get_slip_from_db(bulan, tahun)
 
-    df = load_all_salary_data()
+    return render_template("admin_dashboard.html",
+                           active_tab=active_tab,
+                           bulan=int(bulan),
+                           tahun=int(tahun),
+                           data_slip=data_slip)
 
-    slip_data = []
-
-    # Filter hanya jika bulan dan tahun dipilih
-    if selected_bulan and selected_tahun:
-        filtered_df = df[(df['BULAN'].astype(str).str.zfill(2) == selected_bulan) &
-                         (df['TAHUN'].astype(str) == selected_tahun)]
+@app.route("/admin/upload_gaji", methods=["POST"])
+def upload_gaji():
+    if session.get('role') != 'admin':
+        return redirect(url_for('login'))
+    file = request.files.get("file")
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        flash("Data gaji berhasil diupload", "success")
     else:
-        filtered_df = pd.DataFrame()  # atau tampilkan semua jika ingin default
+        flash("Format file tidak valid. Gunakan .xlsx", "danger")
+    return redirect(url_for("admin_dashboard", tab="gaji"))
 
-    for _, user in filtered_df.iterrows():
-        bulan_str = str(user['BULAN']).zfill(2)
-        bulan_nama = calendar.month_name[int(user['BULAN'])] if user['BULAN'] else "Unknown"
-        tahun = str(user['TAHUN']).strip()
-        slip_data.append({
-            'nup': user['NUP'],
-            'nama': user['NAMA'],
-            'email': user.get('EMAIL', ''),
-            'bulan': bulan_str,
-            'tahun': tahun,
-            'file_path': user.get('SOURCE_FILE'),
-            'status_kirim': user.get('STATUS_KIRIM', 'Belum')
-        })
-
-    return render_template(
-        "admin_dashboard.html",
-        slips=slip_data,
-        bulan=selected_bulan,
-        tahun=selected_tahun
-    )
-
-@app.route('/admin/download/<nup>/<bulan>/<tahun>')
-def admin_download(nup, bulan, tahun):
+@app.route("/admin/upload_user", methods=["POST"])
+def upload_user():
     if session.get('role') != 'admin':
         return redirect(url_for('login'))
-
-    filename = f'gaji_{tahun}_{bulan}.xlsx'
-    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-
+    file = request.files.get("file")
+    if not file or not allowed_file(file.filename):
+        flash("Format file tidak valid. Gunakan .xlsx", "danger")
+        return redirect(url_for("admin_dashboard", tab="user"))
     try:
-        df = pd.read_excel(file_path)
-        df = clean_column_names(df)
-        df['PASSWORD'] = df['TTL'].astype(str).str.zfill(8)
-
-        user_data = df[df['NUP'].astype(str) == str(nup)]
-        if user_data.empty:
-            return "Data tidak ditemukan", 404
-
-        pdf_path = generate_pdf(user_data.iloc[0].to_dict())
-        return send_file(pdf_path, as_attachment=True)
-
+        df = pd.read_excel(file, dtype={'NUP': str})
     except Exception as e:
-        return f"Gagal mengunduh slip: {str(e)}", 500
+        flash(f"Error membaca file: {str(e)}", "danger")
+        return redirect(url_for("admin_dashboard", tab="user"))
 
-
-def find_excel_file(bulan, tahun):
-    """
-    Fungsi pembantu untuk mencari file Excel berdasarkan bulan dan tahun
-    """
-    bulan_lc = bulan.lower()
-    for file in os.listdir(app.config['UPLOAD_FOLDER']):
-        if file.endswith('.xlsx') and re.search(fr"{tahun}.*{bulan_lc}", file.lower()):
-            return os.path.join(app.config['UPLOAD_FOLDER'], file)
-    return None
-
-
-@app.route('/admin/sendall/<bulan>/<tahun>')
-def sendall(bulan, tahun):
-    if session.get('role') != 'admin':
-        return redirect(url_for('login'))
-
-    file_path = find_excel_file(bulan, tahun)
-    if not file_path or not os.path.exists(file_path):
-        return f"❌ File data untuk {bulan}-{tahun} tidak ditemukan.", 404
-
-    df = pd.read_excel(file_path)
-    df = clean_column_names(df)
-    df['PASSWORD'] = df['TTL'].astype(str).str.zfill(8)
-
-    success_count = 0
-    failed = []
-
+    success, fail = 0, 0
     for _, row in df.iterrows():
-        user_data = row.to_dict()
+        nup_raw = row.get('NUP')
+        ttl_raw = pd.to_datetime(row.get('TTL'), errors='coerce')
+        if pd.isna(nup_raw) or pd.isna(ttl_raw):
+            fail += 1
+            continue
         try:
-            pdf_path = generate_pdf(user_data)
-            send_email(
-                to_email=user_data['EMAIL'],
-                pdf_path=pdf_path,
-                nama=user_data['NAMA'],
-                bulan=str(bulan),
-                tahun=str(tahun)
-            )
-            success_count += 1
-        except Exception as e:
-            failed.append({
-                'nup': user_data.get('NUP', 'Tidak Diketahui'),
-                'nama': user_data.get('NAMA', 'Tidak Diketahui'),
-                'error': str(e)
-            })
-
-    return {
-        "status": "selesai",
-        "bulan": bulan,
-        "tahun": tahun,
-        "berhasil": success_count,
-        "gagal": failed
-    }
-
-
-@app.route('/admin/send_email/<nup>/<bulan>/<tahun>')
-def send_email_by_admin(nup, bulan, tahun):
-    if session.get('role') != 'admin':
-        return redirect(url_for('login'))
-
-    file_path = find_excel_file(bulan, tahun)
-    if not file_path or not os.path.exists(file_path):
-        return f"❌ File data untuk {bulan}-{tahun} tidak ditemukan.", 404
-
-    df = pd.read_excel(file_path)
-    df = clean_column_names(df)
-    df['PASSWORD'] = df['TTL'].astype(str).str.zfill(8)
-
-    user_data = df[df['NUP'].astype(str) == nup]
-
-    if user_data.empty:
-        return f"❌ Data NUP {nup} tidak ditemukan.", 404
-
-    user_data = user_data.iloc[0].to_dict()
-
-    try:
-        pdf_path = generate_pdf(user_data)
-        send_email(
-            to_email=user_data['EMAIL'],
-            pdf_path=pdf_path,
-            nama=user_data['NAMA'],
-            bulan=str(bulan),
-            tahun=str(tahun)
-        )
-        return f"✅ Slip gaji berhasil dikirim ke {user_data['EMAIL']}."
-    except Exception as e:
-        return f"❌ Gagal mengirim ulang: {str(e)}"
-
-@app.route('/admin/upload', methods=['GET', 'POST'])
-def upload_excel():
-    if session.get('role') != 'admin':
-        return redirect(url_for('login'))
-
-    if request.method == 'POST':
-        file = request.files.get('file')
-        if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            return "✅ Data berhasil diunggah."
-        return "❌ Format file tidak didukung.", 400
-
-    return '''
-    <h3>Upload Data Gaji (.xlsx)</h3>
-    <form method="POST" enctype="multipart/form-data">
-        <input type="file" name="file" accept=".xlsx">
-        <input type="submit" value="Upload">
-    </form>
-    '''
+            add_user(str(nup_raw).strip(), ttl_raw.strftime('%d%m%Y'), role='pegawai')
+            success += 1
+        except:
+            fail += 1
+    flash(f"{success} user berhasil ditambahkan, {fail} gagal.", "info")
+    return redirect(url_for("admin_dashboard", tab="user"))
 
 @app.route('/logout')
 def logout():
