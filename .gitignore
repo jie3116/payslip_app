@@ -8,16 +8,24 @@ __pycache__/
 .env
 *.xlsx
 *.pdf
+users.csv
+users_no_id.csv
+app.conf
+debug_slip.html
 
 # Folder hasil slip
 slips/
 static/slips/
 output.pdf
 data/
+models/
 
 # IDE (PyCharm) dan sistem
 .idea/
 .DS_Store
 
-#DB
+# DB
 users.db
+
+# konfigurasi
+config.py
